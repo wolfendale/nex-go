@@ -257,6 +257,7 @@ func NewPRUDPPacketV0(server *PRUDPServer, connection *PRUDPConnection, readStre
 	packet.server = server
 
 	if readStream != nil {
+
 		err := packet.decode()
 		if err != nil {
 			return nil, fmt.Errorf("Failed to decode PRUDPv0 packet. %s", err.Error())

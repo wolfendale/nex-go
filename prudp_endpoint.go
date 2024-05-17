@@ -80,6 +80,7 @@ func (pep *PRUDPEndPoint) on(name string, handler func(packet PacketInterface)) 
 }
 
 func (pep *PRUDPEndPoint) emit(name string, packet PRUDPPacketInterface) {
+
 	if handlers, ok := pep.packetEventHandlers[name]; ok {
 		for _, handler := range handlers {
 			go handler(packet)
@@ -142,11 +143,11 @@ func (pep *PRUDPEndPoint) processPacket(packet PRUDPPacketInterface, socket *Soc
 
 func (pep *PRUDPEndPoint) handleAcknowledgment(packet PRUDPPacketInterface) {
 	connection := packet.Sender().(*PRUDPConnection)
-	if connection.ConnectionState != StateConnected {
-		// TODO - Log this?
-		// * Connection is in a bad state, drop the packet and let it die
-		return
-	}
+	// if connection.ConnectionState != StateConnected {
+	// 	// TODO - Log this?
+	// 	// * Connection is in a bad state, drop the packet and let it die
+	// 	return
+	// }
 
 	if packet.HasFlag(constants.PacketFlagMultiAck) {
 		pep.handleMultiAcknowledgment(packet)
@@ -206,13 +207,14 @@ func (pep *PRUDPEndPoint) handleMultiAcknowledgment(packet PRUDPPacketInterface)
 }
 
 func (pep *PRUDPEndPoint) handleSyn(packet PRUDPPacketInterface) {
+
 	connection := packet.Sender().(*PRUDPConnection)
 
-	if connection.ConnectionState != StateNotConnected {
-		// TODO - Log this?
-		// * Connection is in a bad state, drop the packet and let it die
-		return
-	}
+	// if connection.ConnectionState != StateNotConnected {
+	// 	// TODO - Log this?
+	// 	// * Connection is in a bad state, drop the packet and let it die
+	// 	return
+	// }
 
 	var ack PRUDPPacketInterface
 
@@ -259,11 +261,11 @@ func (pep *PRUDPEndPoint) handleSyn(packet PRUDPPacketInterface) {
 func (pep *PRUDPEndPoint) handleConnect(packet PRUDPPacketInterface) {
 	connection := packet.Sender().(*PRUDPConnection)
 
-	if connection.ConnectionState != StateConnecting {
-		// TODO - Log this?
-		// * Connection is in a bad state, drop the packet and let it die
-		return
-	}
+	// if connection.ConnectionState != StateConnecting {
+	// 	// TODO - Log this?
+	// 	// * Connection is in a bad state, drop the packet and let it die
+	// 	return
+	// }
 
 	var ack PRUDPPacketInterface
 
@@ -383,6 +385,7 @@ func (pep *PRUDPEndPoint) handleConnect(packet PRUDPPacketInterface) {
 }
 
 func (pep *PRUDPEndPoint) handleData(packet PRUDPPacketInterface) {
+
 	connection := packet.Sender().(*PRUDPConnection)
 
 	if connection.ConnectionState != StateConnected {
@@ -527,19 +530,23 @@ func (pep *PRUDPEndPoint) handleReliable(packet PRUDPPacketInterface) {
 	connection := packet.Sender().(*PRUDPConnection)
 
 	slidingWindow := packet.Sender().(*PRUDPConnection).SlidingWindow(packet.SubstreamID())
+	slidingWindow.Mutex.Lock()
 
-	for _, pendingPacket := range slidingWindow.Update(packet) {
+	foobar := slidingWindow.Update(packet)
+	for _, pendingPacket := range foobar {
 		if packet.Type() == constants.DataPacket {
 			var decryptedPayload []byte
 
 			if packet.Version() != 2 {
 				decryptedPayload = pendingPacket.decryptPayload()
+				// decryptedPayload = pendingPacket.Payload()
 			} else {
 				// * PRUDPLite does not encrypt payloads
 				decryptedPayload = pendingPacket.Payload()
 			}
 
 			decompressedPayload, err := connection.StreamSettings.CompressionAlgorithm.Decompress(decryptedPayload)
+
 			if err != nil {
 				logger.Error(err.Error())
 			}
@@ -552,16 +559,25 @@ func (pep *PRUDPEndPoint) handleReliable(packet PRUDPPacketInterface) {
 				if err != nil {
 					// TODO - Should this return the error too?
 					logger.Error(err.Error())
+					fmt.Printf("from packet: %x\n", packet.Payload())
+					fmt.Printf("packets in SW: %v\n", len(foobar))
+					fmt.Printf("from sw: %x\n", payload)
+					// fmt.Printf("%x\n", packet.Bytes())
 				}
 
 				slidingWindow.ResetFragmentedPayload()
 
 				packet.SetRMCMessage(message)
 
+				// Should this be here?
+				packet.SetPayload(decryptedPayload)
+
 				pep.emit("data", packet)
 			}
 		}
 	}
+
+	slidingWindow.Mutex.Unlock()
 }
 
 func (pep *PRUDPEndPoint) handleUnreliable(packet PRUDPPacketInterface) {

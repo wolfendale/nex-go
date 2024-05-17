@@ -1,5 +1,7 @@
 package nex
 
+import "sync"
+
 // SlidingWindow is an implementation of rdv::SlidingWindow.
 // SlidingWindow reorders pending reliable packets to ensure they are handled in the expected order.
 // In the original library each virtual connection stream only uses a single SlidingWindow, but starting
@@ -11,6 +13,7 @@ type SlidingWindow struct {
 	streamSettings            *StreamSettings
 	fragmentedPayload         []byte
 	ResendScheduler           *ResendScheduler
+	Mutex                     *sync.Mutex
 }
 
 // Update adds an incoming packet to the list of known packets and returns a list of packets to be processed in order
@@ -71,6 +74,7 @@ func NewSlidingWindow() *SlidingWindow {
 		incomingSequenceIDCounter: NewCounter[uint16](0),
 		outgoingSequenceIDCounter: NewCounter[uint16](0),
 		ResendScheduler:           NewResendScheduler(),
+		Mutex:                     &sync.Mutex{},
 	}
 
 	return sw

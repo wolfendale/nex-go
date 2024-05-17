@@ -134,15 +134,21 @@ func (ps *PRUDPServer) handleSocketMessage(packetData []byte, address net.Addr, 
 	// * with that same type. Also keep reading from the stream
 	// * until no more data is left, to account for multiple
 	// * packets being sent at once
+	var err error
 	if ps.websocketServer != nil && packetData[0] == 0x80 {
-		packets, _ = NewPRUDPPacketsLite(ps, nil, readStream)
+		packets, err = NewPRUDPPacketsLite(ps, nil, readStream)
 	} else if bytes.Equal(packetData[:2], []byte{0xEA, 0xD0}) {
-		packets, _ = NewPRUDPPacketsV1(ps, nil, readStream)
+		packets, err = NewPRUDPPacketsV1(ps, nil, readStream)
 	} else {
-		packets, _ = NewPRUDPPacketsV0(ps, nil, readStream)
+		packets, err = NewPRUDPPacketsV0(ps, nil, readStream)
+	}
+
+	if err != nil {
+		fmt.Printf("Error when decoding packets: %v\n", err)
 	}
 
 	for _, packet := range packets {
+
 		go ps.processPacket(packet, address, webSocketConnection)
 	}
 
@@ -150,6 +156,7 @@ func (ps *PRUDPServer) handleSocketMessage(packetData []byte, address net.Addr, 
 }
 
 func (ps *PRUDPServer) processPacket(packet PRUDPPacketInterface, address net.Addr, webSocketConnection *gws.Conn) {
+
 	if !ps.Endpoints.Has(packet.DestinationVirtualPortStreamID()) {
 		logger.Warningf("Client %s trying to connect to unbound PRUDPEndPoint %d", address.String(), packet.DestinationVirtualPortStreamID())
 		return

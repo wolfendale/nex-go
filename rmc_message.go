@@ -63,6 +63,8 @@ func (rmc *RMCMessage) decodePacked(data []byte) error {
 	}
 
 	if stream.Remaining() != uint64(length) {
+		// fmt.Printf("expected size: %v, actual size: %v \n", uint64(length), stream.Remaining())
+		// fmt.Println(data)
 		return errors.New("RMC Message has unexpected size")
 	}
 
