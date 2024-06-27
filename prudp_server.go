@@ -228,9 +228,9 @@ func (ps *PRUDPServer) Send(packet PacketInterface) {
 			// * The 16ms (1/60th of a second) value is chosen based on testing with the friends server and is a good balance between
 			// * Not being too slow and also not dropping any packets because we've overloaded the client. This may be because it
 			// * roughly matches the framerate that most games target (60fps)
-			if i < fragments {
-				time.Sleep(16 * time.Millisecond)
-			}
+			// if i < fragments {
+			// 	time.Sleep(16 * time.Millisecond)
+			// }
 		}
 	}
 }
@@ -251,6 +251,7 @@ func (ps *PRUDPServer) sendPacket(packet PRUDPPacketInterface) {
 			packetCopy.SetSequenceID(connection.outgoingUnreliableSequenceIDCounter.Next())
 		} else if packetCopy.Type() == constants.PingPacket {
 			packetCopy.SetSequenceID(connection.outgoingPingSequenceIDCounter.Next())
+			connection.lastSentPingTime = time.Now()
 		} else {
 			packetCopy.SetSequenceID(0)
 		}
@@ -287,6 +288,9 @@ func (ps *PRUDPServer) sendPacket(packet PRUDPPacketInterface) {
 	} else {
 		packetCopy.setSignature(packetCopy.calculateSignature(connection.SessionKey, connection.ServerConnectionSignature))
 	}
+
+	packetCopy.incrementSendCount()
+	packetCopy.setSentAt(time.Now())
 
 	if packetCopy.HasFlag(constants.PacketFlagReliable) && packetCopy.HasFlag(constants.PacketFlagNeedsAck) {
 		slidingWindow := connection.SlidingWindow(packetCopy.SubstreamID())
